@@ -24,241 +24,167 @@ if Config.CustomMenuEnabled then
 end
 
 local _menuPool = NativeUI.CreatePool()
-local mainMenu = NativeUI.CreateMenu(Config.MenuTitle or "", "", menuPosition["x"], menuPosition["y"], menuHeader, menuHeader)
+local mainMenu = NativeUI.CreateMenu(Config.MenuTitle or "", "", menuPosition.x, menuPosition.y, menuHeader, menuHeader)
 _menuPool:Add(mainMenu)
 
-local sharemenu, shareddancemenu, favmenu, infomenu
-
-local EmoteTable = {}
-local FavEmoteTable = {}
-local DanceTable = {}
-local AnimalTable = {}
-local PropETable = {}
-local WalkTable = {}
-local FaceTable = {}
-local ShareTable = {}
+local menuTables = {}
+local isSearching = false
 local FavoriteEmote = ""
 
-if Config.FavKeybindEnabled then
-    RegisterCommand('emotefav', function() FavKeybind() end, false)
-    RegisterKeyMapping("emotefav", Translate("register_fav_anim"), "keyboard", Config.FavKeybind)
-
-    local doingFavoriteEmote = false
-
-    function FavKeybind()
-        if doingFavoriteEmote == false then
-            doingFavoriteEmote = true
-            if not IsPedSittingInAnyVehicle(PlayerPedId()) then
-                if FavoriteEmote ~= "" and (not CanUseFavKeyBind or CanUseFavKeyBind()) then
-                    EmoteCommandStart(nil, { FavoriteEmote, 0 })
-                    Wait(500)
-                end
-            end
-        else
-            EmoteCancel()
-            doingFavoriteEmote = false
-        end
-    end
-end
-
-function AddEmoteMenu(menu)
-    local submenu = _menuPool:AddSubMenu(menu, Translate('emotes'), "", true, true)
-    if Config.Search then
-        submenu:AddItem(NativeUI.CreateItem(Translate('searchemotes'), ""))
-        table.insert(EmoteTable, Translate('searchemotes'))
-    end
-    local dancemenu = _menuPool:AddSubMenu(submenu, Translate('danceemotes'), "", true, true)
-    local animalmenu
-    if Config.AnimalEmotesEnabled then
-        animalmenu = _menuPool:AddSubMenu(submenu, Translate('animalemotes'), "", true, true)
-        table.insert(EmoteTable, Translate('animalemotes'))
-    end
-    local propmenu = _menuPool:AddSubMenu(submenu, Translate('propemotes'), "", true, true)
-    table.insert(EmoteTable, Translate('danceemotes'))
-    table.insert(EmoteTable, Translate('danceemotes'))
-
-    if Config.SharedEmotesEnabled then
-        sharemenu = _menuPool:AddSubMenu(submenu, Translate('shareemotes'),
-            Translate('shareemotesinfo'), true, true)
-        shareddancemenu = _menuPool:AddSubMenu(sharemenu, Translate('sharedanceemotes'), "", true, true)
-        table.insert(ShareTable, 'none')
-        table.insert(EmoteTable, Translate('shareemotes'))
-    end
-
-    -- Temp var to be able to sort every emotes in the fav list
-    local favEmotes = {}
-    if not Config.SqlKeybinding then
-        favmenu = _menuPool:AddSubMenu(submenu, Translate('favoriteemotes'), Translate('favoriteinfo'), true, true)
-        favmenu:AddItem(NativeUI.CreateItem(Translate('prop2info'), ""))
-        favmenu:AddItem(NativeUI.CreateItem(Translate('rfavorite'), Translate('rfavorite')))
-        -- Add two elements as offset
-        table.insert(FavEmoteTable, Translate('rfavorite'))
-        table.insert(FavEmoteTable, Translate('rfavorite'))
-        table.insert(EmoteTable, Translate('favoriteemotes'))
-    else
-        table.insert(EmoteTable, "keybinds")
-        submenu:AddItem(NativeUI.CreateItem(Translate('keybinds'), Translate('keybindsinfo') .. " /emotebind [~y~num4-9~w~] [~g~emotename~w~]"))
-    end
-
-    for a, b in PairsByKeys(RP.Emotes) do
-        local x, y, z = table.unpack(b)
-        submenu:AddItem(NativeUI.CreateItem(z, "/e (" .. a .. ")"))
-        table.insert(EmoteTable, a)
-        if not Config.SqlKeybinding then
-            favEmotes[a] = z
-        end
-    end
-
-    for a, b in PairsByKeys(RP.Dances) do
-        local x, y, z = table.unpack(b)
-        dancemenu:AddItem(NativeUI.CreateItem(z, "/e (" .. a .. ")"))
-        if Config.SharedEmotesEnabled then
-            shareddancemenu:AddItem(NativeUI.CreateItem(z, "/nearby (" .. a .. ")"))
-        end
-        table.insert(DanceTable, a)
-        if not Config.SqlKeybinding then
-            favEmotes[a] = z
-        end
-    end
-
-    if Config.AnimalEmotesEnabled then
-        for a, b in PairsByKeys(RP.AnimalEmotes) do
-            local x, y, z = table.unpack(b)
-            animalmenu:AddItem(NativeUI.CreateItem(z, "/e (" .. a .. ")"))
-            table.insert(AnimalTable, a)
-            if not Config.SqlKeybinding then
-                favEmotes[a] = z
+-- Animation type handlers
+local AnimationHandlers = {
+    animation = {
+        createMenuItem = function(menu, emoteData, emoteKey)
+            return NativeUI.CreateItem(emoteData[3], "/e (" .. emoteKey .. ")")
+        end,
+        onSelect = function(emoteKey, category, dataTable)
+            EmoteMenuStart(emoteKey, "normalemote", nil, dataTable)
+        end,
+        onIndexChange = function(emoteKey, category, dataTable)
+            if Config.PreviewPed then
+                ClearPedTaskPreview()
+                EmoteMenuStartClone(emoteKey, "normalemote", dataTable)
             end
         end
-    end
-
-    if Config.SharedEmotesEnabled then
-        for a, b in PairsByKeys(RP.Shared) do
-            local x, y, z, otheremotename = table.unpack(b)
-            local shareitem = NativeUI.CreateItem(z, "/nearby (~g~" .. a .. "~w~)" .. (otheremotename and " " .. Translate('makenearby') .. " (~y~" .. otheremotename .. "~w~)" or ""))
-            sharemenu:AddItem(shareitem)
-            table.insert(ShareTable, a)
-        end
-    end
-
-    for a, b in PairsByKeys(RP.PropEmotes) do
-        local x, y, z = table.unpack(b)
-        local propitem = b.AnimationOptions.PropTextureVariations and
-            NativeUI.CreateListItem(z, b.AnimationOptions.PropTextureVariations, 1, "/e (" .. a .. ")") or
-            NativeUI.CreateItem(z, "/e (" .. a .. ")")
-
-        propmenu:AddItem(propitem)
-
-        table.insert(PropETable, a)
-        if not Config.SqlKeybinding then
-            favEmotes[a] = z
-        end
-    end
-
-    if not Config.SqlKeybinding then
-        -- Add the emotes to the fav menu
-        for emoteName, emoteLabel in PairsByKeys(favEmotes) do
-            favmenu:AddItem(NativeUI.CreateItem(emoteLabel, Translate('set') .. emoteLabel .. Translate('setboundemote')))
-            table.insert(FavEmoteTable, emoteName)
-        end
-
-        favmenu.OnItemSelect = function(sender, item, index)
-            if FavEmoteTable[index] == Translate('rfavorite') then
-                FavoriteEmote = ""
-                SimpleNotify(Translate('rfavorite'))
-                return
+    },
+    animation_with_options = {
+        createMenuItem = function(menu, emoteData, emoteKey)
+            if emoteData.AnimationOptions and emoteData.AnimationOptions.PropTextureVariations then
+                return NativeUI.CreateListItem(emoteData[3],
+                    emoteData.AnimationOptions.PropTextureVariations,
+                    1,
+                    "/e (" .. emoteKey .. ")")
             end
-            if Config.FavKeybindEnabled then
-                FavoriteEmote = FavEmoteTable[index]
-                SimpleNotify("~o~" .. FirstToUpper(FavoriteEmote) .. Translate('newsetemote'))
+            return NativeUI.CreateItem(emoteData[3], "/e (" .. emoteKey .. ")")
+        end,
+        onSelect = function(emoteKey, textureIndex, dataTable)
+            print(emoteKey, textureIndex, dataTable)
+            EmoteMenuStart(emoteKey, "propemote", textureIndex, dataTable)
+        end,
+        onListSelect = function(emoteKey, listIndex, dataTable)
+            print(emoteKey, listIndex, dataTable)
+            EmoteMenuStart(emoteKey, "propemote", listIndex, dataTable)
+        end,
+        onIndexChange = function(emoteKey, category, dataTable)
+            if Config.PreviewPed then
+                ClearPedTaskPreview()
+                EmoteMenuStartClone(emoteKey, "propemote", dataTable)
             end
         end
-    end
-    favEmotes = nil
-
-    -- Ped Emote on Change Index
-
-    dancemenu.OnIndexChange = function(menu, newindex)
-        ClearPedTaskPreview()
-        EmoteMenuStartClone(DanceTable[newindex], "dances")
-    end
-
-    propmenu.OnIndexChange = function(menu, newindex)
-        ClearPedTaskPreview()
-        EmoteMenuStartClone(PropETable[newindex], "props")
-    end
-
-    submenu.OnIndexChange = function(menu, newindex)
-        if newindex > 6 then
-            ClearPedTaskPreview()
-            EmoteMenuStartClone(EmoteTable[newindex], "emotes")
-        end
-    end
-
-    dancemenu.OnMenuClosed = function(menu)
-        ClearPedTaskPreview()
-    end
-
-    --------
-
-
-    dancemenu.OnItemSelect = function(sender, item, index)
-        EmoteMenuStart(DanceTable[index], "dances")
-    end
-
-    if Config.AnimalEmotesEnabled then
-        animalmenu.OnItemSelect = function(sender, item, index)
-            EmoteMenuStart(AnimalTable[index], "animals")
-        end
-    end
-
-    if Config.SharedEmotesEnabled then
-        sharemenu.OnItemSelect = function(sender, item, index)
-            if ShareTable[index] ~= 'none' then
-                local target, distance = GetClosestPlayer()
-                if (distance ~= -1 and distance < 3) then
-                    TriggerServerEvent("ServerEmoteRequest", GetPlayerServerId(target), ShareTable[index])
-                    SimpleNotify(Translate('sentrequestto') .. GetPlayerName(target))
-                else
-                    SimpleNotify(Translate('nobodyclose'))
-                end
-            end
-        end
-
-        shareddancemenu.OnItemSelect = function(sender, item, index)
+    },
+    shared = {
+        createMenuItem = function(menu, emoteData, emoteKey)
+            local x, y, z, otheremotename = table.unpack(emoteData)
+            local desc = "/nearby (~g~" .. emoteKey .. "~w~)" ..
+                (otheremotename and " " .. Translate('makenearby') ..
+                    " (~y~" .. otheremotename .. "~w~)" or "")
+            return NativeUI.CreateItem(z, desc)
+        end,
+        onSelect = function(emoteKey, _, dataTable)
             local target, distance = GetClosestPlayer()
             if (distance ~= -1 and distance < 3) then
-                TriggerServerEvent("ServerEmoteRequest", GetPlayerServerId(target), DanceTable[index], 'Dances')
+                TriggerServerEvent("ServerEmoteRequest", GetPlayerServerId(target), emoteKey, dataTable)
                 SimpleNotify(Translate('sentrequestto') .. GetPlayerName(target))
             else
                 SimpleNotify(Translate('nobodyclose'))
             end
         end
-    end
+    }
 
-    propmenu.OnItemSelect = function(sender, item, index)
-        EmoteMenuStart(PropETable[index], "props")
-    end
+}
 
-   propmenu.OnListSelect = function(menu, item, itemIndex, listIndex)
-        EmoteMenuStart(PropETable[itemIndex], "props", item:IndexToItem(listIndex).Value)
-    end
-
-    submenu.OnItemSelect = function(sender, item, index)
-        if Config.Search and EmoteTable[index] == Translate('searchemotes') then
-            EmoteMenuSearch(submenu)
-        elseif EmoteTable[index] ~= Translate('favoriteemotes') then
-            EmoteMenuStart(EmoteTable[index], "emotes")
+-- Function to set up menu handlers
+local function SetupMenuHandlers(menu, handler, config)
+    if handler.onSelect then
+        menu.OnItemSelect = function(sender, item, index)
+            handler.onSelect(menuTables[config.name][index], config.name, config.dataTable)
         end
     end
 
-    submenu.OnMenuClosed = function(menu)
-        if not isSearching then
-            ClosePedMenu()
+    if handler.onIndexChange then
+        menu.OnIndexChange = function(menu, newindex)
+            handler.onIndexChange(menuTables[config.name][newindex], config.name, config.dataTable)
         end
     end
 
+    if handler.onListSelect then
+        menu.OnListSelect = function(menu, item, itemIndex, listIndex)
+            handler.onListSelect(menuTables[config.name][itemIndex], listIndex - 1, config.dataTable)
+        end
+    end
 end
+
+-- Function to create subcategory menu
+local function CreateSubcategory(parentMenu, subcatConfig, parentName)
+    local handler = AnimationHandlers[subcatConfig.type]
+    if not handler then return end
+
+    local subcatMenu = _menuPool:AddSubMenu(
+        parentMenu,
+        Translate(subcatConfig.label),
+        subcatConfig.description and Translate(subcatConfig.description) or "",
+        true,
+        true
+    )
+
+    menuTables[subcatConfig.name] = {}
+
+    -- Add items from data table
+    for emoteKey, emoteData in PairsByKeys(RP[subcatConfig.dataTable]) do
+        local menuItem = handler.createMenuItem(subcatMenu, emoteData, emoteKey)
+        subcatMenu:AddItem(menuItem)
+        table.insert(menuTables[subcatConfig.name], emoteKey)
+    end
+
+    -- Set up event handlers
+    SetupMenuHandlers(subcatMenu, handler, subcatConfig)
+
+    -- Create shared submenu if enabled
+    if subcatConfig.sharedEnabled and Config.SharedEmotesEnabled then
+        CreateSharedSubmenu(parentMenu, subcatConfig, menuTables[subcatConfig.name])
+    end
+
+    parentMenu.OnMenuClosed = function(menu)
+        ClosePedMenu()
+    end
+end
+
+-- Function to create menu structure from config
+local function CreateMenuFromConfig(parentMenu)
+    for _, category in ipairs(Config.MenuCategories) do
+        if category.enabled ~= false then
+            local submenu = _menuPool:AddSubMenu(
+                parentMenu,
+                Translate(category.label),
+                category.description and Translate(category.description) or "",
+                true,
+                true
+            )
+
+            submenu.OnMenuClosed = function(menu)
+                ClosePedMenu()
+            end
+
+            menuTables[category.name] = {}
+
+            -- Add search if enabled
+            if Config.Search and category.name == "emotes" then
+                submenu:AddItem(NativeUI.CreateItem(Translate('searchemotes'), ""))
+                table.insert(menuTables[category.name], Translate('searchemotes'))
+            end
+
+            -- Create subcategories
+            if category.categories then
+                for _, subcat in ipairs(category.categories) do
+                    if subcat.enabled ~= false then
+                        CreateSubcategory(submenu, subcat, category.name)
+                    end
+                end
+            end
+        end
+    end
+end
+
 
 if Config.Search then
     local ignoredCategories = {
@@ -283,7 +209,7 @@ if Config.Search then
                 if not ignoredCategories[k] then
                     for a, b in pairs(v) do
                         if string.find(string.lower(a), string.lower(input)) or (b[3] ~= nil and string.find(string.lower(b[3]), string.lower(input))) then
-                            table.insert(results, {table = k, name = a, data = b})
+                            table.insert(results, { table = k, name = a, data = b })
                         end
                     end
                 end
@@ -292,7 +218,8 @@ if Config.Search then
             if #results > 0 then
                 isSearching = true
 
-                local searchMenu = _menuPool:AddSubMenu(lastMenu, string.format('%s '..Translate('searchmenudesc')..' ~r~%s~w~', #results, input), "", true, true)
+                local searchMenu = _menuPool:AddSubMenu(lastMenu,
+                    string.format('%s ' .. Translate('searchmenudesc') .. ' ~r~%s~w~', #results, input), "", true, true)
                 local sharedDanceMenu
                 if favEnabled then
                     searchMenu:AddItem(NativeUI.CreateItem(Translate('rfavorite'), Translate('rfavorite')))
@@ -308,16 +235,18 @@ if Config.Search then
                     if v.table == "Shared" then
                         local otheremotename = v.data[4]
                         if otheremotename == nil then
-                           desc = "/nearby (~g~" .. v.name .. "~w~)"
+                            desc = "/nearby (~g~" .. v.name .. "~w~)"
                         else
-                           desc = "/nearby (~g~" .. v.name .. "~w~) " .. Translate('makenearby') .. " (~y~" .. otheremotename .. "~w~)"
+                            desc = "/nearby (~g~" ..
+                                v.name .. "~w~) " .. Translate('makenearby') .. " (~y~" .. otheremotename .. "~w~)"
                         end
                     else
                         desc = "/e (" .. v.name .. ")" .. (favEnabled and "\n" .. Translate('searchshifttofav') or "")
                     end
 
                     if v.data.AnimationOptions and v.data.AnimationOptions.PropTextureVariations then
-                        searchMenu:AddItem(NativeUI.CreateListItem(v.data[3], v.data.AnimationOptions.PropTextureVariations, 1, desc))
+                        searchMenu:AddItem(NativeUI.CreateListItem(v.data[3],
+                            v.data.AnimationOptions.PropTextureVariations, 1, desc))
                     else
                         searchMenu:AddItem(NativeUI.CreateItem(v.data[3], desc))
                     end
@@ -423,7 +352,7 @@ if Config.Search then
                 searchMenu:Visible(true)
                 ShowPedMenu()
             else
-                SimpleNotify(string.format(Translate('searchnoresult')..' ~r~%s~w~', input))
+                SimpleNotify(string.format(Translate('searchnoresult') .. ' ~r~%s~w~', input))
             end
         end
     end
@@ -452,23 +381,27 @@ end
 function AddWalkMenu(menu)
     local submenu = _menuPool:AddSubMenu(menu, Translate('walkingstyles'), "", true, true)
 
+    -- Need to inizialitze the table
+    menuTables["Walk"] = {}
+
     local walkreset = NativeUI.CreateItem(Translate('normalreset'), Translate('resetdef'))
     submenu:AddItem(walkreset)
-    table.insert(WalkTable, Translate('resetdef'))
+
+    table.insert(menuTables["Walk"], Translate('resetdef'))
 
     local sortedWalks = {}
     for a, b in PairsByKeys(RP.Walks) do
         local x, label = table.unpack(b)
         if x == "move_m@injured" then
-            table.insert(sortedWalks, 1, {label = label or a, anim = x})
+            table.insert(sortedWalks, 1, { label = label or a, anim = x })
         else
-            table.insert(sortedWalks, {label = label or a, anim = x})
+            table.insert(sortedWalks, { label = label or a, anim = x })
         end
     end
 
     for _, walk in ipairs(sortedWalks) do
         submenu:AddItem(NativeUI.CreateItem(walk.label, "/walk (" .. string.lower(walk.label) .. ")"))
-        table.insert(WalkTable, walk.anim)
+        table.insert(menuTables["Walk"], walk.anim)
     end
 
     submenu.OnItemSelect = function(sender, item, index)
@@ -476,7 +409,7 @@ function AddWalkMenu(menu)
             ResetWalk()
             DeleteResourceKvp("walkstyle")
         else
-            WalkMenuStart(WalkTable[index])
+            WalkMenuStart(menuTables["Walk"][index])
         end
     end
 end
@@ -484,14 +417,17 @@ end
 function AddFaceMenu(menu)
     local submenu = _menuPool:AddSubMenu(menu, Translate('moods'), "", true, true)
 
+    -- Need to inizialitze the table
+    menuTables["Face"] = {}
+
     local facereset = NativeUI.CreateItem(Translate('normalreset'), Translate('resetdef'))
     submenu:AddItem(facereset)
-    table.insert(FaceTable, "")
+    table.insert(menuTables["Face"], "")
 
     for name, data in PairsByKeys(RP.Expressions) do
         local faceitem = NativeUI.CreateItem(data[2] or name, "")
         submenu:AddItem(faceitem)
-        table.insert(FaceTable, name)
+        table.insert(menuTables["Face"], name)
     end
 
 
@@ -500,12 +436,12 @@ function AddFaceMenu(menu)
     end
 
     submenu.OnIndexChange = function(menu, newindex)
-        EmoteMenuStartClone(FaceTable[newindex], "expression")
+        EmoteMenuStartClone(menuTables["Face"][newindex], "expression")
     end
 
     submenu.OnItemSelect = function(sender, item, index)
         if item ~= facereset then
-            EmoteMenuStart(FaceTable[index], "expression")
+            EmoteMenuStart(menuTables["Face"][index], "expression")
         else
             DeleteResourceKvp("expression")
             ClearFacialIdleAnimOverride(PlayerPedId())
@@ -514,57 +450,35 @@ function AddFaceMenu(menu)
 end
 
 function AddInfoMenu(menu)
-    infomenu = _menuPool:AddSubMenu(menu, Translate('infoupdate'), "~h~~y~The RPEmotes Team & Collaborators~h~~y~", true, true)
+    infomenu = _menuPool:AddSubMenu(menu, Translate('infoupdate'), "~h~~y~The RPEmotes Team & Collaborators~h~~y~", true,
+        true)
 
-    for _,v in ipairs(Config.Credits) do
-        local item = NativeUI.CreateItem(v.title,v.subtitle or "")
+    for _, v in ipairs(Config.Credits) do
+        local item = NativeUI.CreateItem(v.title, v.subtitle or "")
         infomenu:AddItem(item)
     end
 end
 
-function OpenEmoteMenu()
-    if IsEntityDead(PlayerPedId()) then
-        -- show in chat
-        TriggerEvent('chat:addMessage', {
-            color = {255, 0, 0},
-            multiline = true,
-            args = {"RPEmotes", Translate('dead')}
-        })
-        return
-    end
-    if (IsPedSwimming(PlayerPedId()) or IsPedSwimmingUnderWater(PlayerPedId())) and not Config.AllowInWater then
-        -- show in chat
-        TriggerEvent('chat:addMessage', {
-            color = {255, 0, 0},
-            multiline = true,
-            args = {"RPEmotes", Translate('swimming')}
-        })
-        return
-    end
-    if _menuPool:IsAnyMenuOpen() then
-        _menuPool:CloseAllMenus()
-    else
-        mainMenu:Visible(true)
-        ProcessMenu()
-    end
-end
-
 LoadAddonEmotes()
-AddEmoteMenu(mainMenu)
+-- Initialize menu
+CreateMenuFromConfig(mainMenu)
 AddCancelEmote(mainMenu)
 if Config.PreviewPed then
     ShowPedPreview(mainMenu)
 end
+
 if Config.WalkingStylesEnabled then
     AddWalkMenu(mainMenu)
 end
+
 if Config.ExpressionsEnabled then
     AddFaceMenu(mainMenu)
 end
-AddInfoMenu(mainMenu)
 
+AddInfoMenu(mainMenu)
 _menuPool:RefreshIndex()
 
+-- Menu processing
 local isMenuProcessing = false
 function ProcessMenu()
     if isMenuProcessing then return end
@@ -576,26 +490,54 @@ function ProcessMenu()
     isMenuProcessing = false
 end
 
+-- Event handlers
 RegisterNetEvent("rp:Update", function(state)
     UpdateAvailable = state
     AddInfoMenu(mainMenu)
     _menuPool:RefreshIndex()
 end)
 
+function OpenEmoteMenu()
+    if IsEntityDead(PlayerPedId()) then
+        -- show in chat
+        TriggerEvent('chat:addMessage', {
+            color = { 255, 0, 0 },
+            multiline = true,
+            args = { "RPEmotes", Translate('dead') }
+        })
+        return
+    end
+    if (IsPedSwimming(PlayerPedId()) or IsPedSwimmingUnderWater(PlayerPedId())) and not Config.AllowInWater then
+        -- show in chat
+        TriggerEvent('chat:addMessage', {
+            color = { 255, 0, 0 },
+            multiline = true,
+            args = { "RPEmotes", Translate('swimming') }
+        })
+        return
+    end
+    if _menuPool:IsAnyMenuOpen() then
+        _menuPool:CloseAllMenus()
+    else
+        mainMenu:Visible(true)
+        ProcessMenu()
+    end
+end
+
 RegisterNetEvent("rp:RecieveMenu", function()
     OpenEmoteMenu()
 end)
 
 
--- While ped is dead, don't show menus
+-- Menu state check thread
 CreateThread(function()
     while true do
         Wait(500)
         if IsEntityDead(PlayerPedId()) then
             _menuPool:CloseAllMenus()
         end
-        if (IsPedSwimming(PlayerPedId()) or IsPedSwimmingUnderWater(PlayerPedId())) and not Config.AllowInWater then
-            -- cancel emote, destroy props and close menu
+        if (IsPedSwimming(PlayerPedId()) or IsPedSwimmingUnderWater(PlayerPedId()))
+            and not Config.AllowInWater then
             if IsInAnimation then
                 EmoteCancel()
             end

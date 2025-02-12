@@ -1,6 +1,7 @@
 Locales['en'] = {
     -- English 🇬🇧
-    ['emotes'] = 'Emotes 🎬',
+    ['emotesmenu'] = 'Emotes 🎬',
+    ['emotes'] = '🎬 Emotes',
     ['danceemotes'] = "🕺 Dance Emotes",
     ['animalemotes'] = "🐩 Animal Emotes",
     ['propemotes'] = "📦 Prop Emotes",
@@ -25,9 +26,11 @@ Locales['en'] = {
     ['show_list_emote'] = 'See the list of possible emotes',
     ['link_emote_keybind'] = 'Linking an emote to a key',
     ['help_command'] = 'dance, camera, sit or any other emote',
-    ['help_variation'] = '(Optional) 1, 2, 3 or any number. Will change the texture of certain accessories used in emotes, for example the color of a telephone. Enter -1 to see a list of variants',
+    ['help_variation'] =
+    '(Optional) 1, 2, 3 or any number. Will change the texture of certain accessories used in emotes, for example the color of a telephone. Enter -1 to see a list of variants',
     ['infoupdateav'] = "Information (Update available)",
-    ['infoupdateavtext'] = "An update is available, get the latest version from ~y~https://github.com/alberttheprince/rpemotes-reborn~w~",
+    ['infoupdateavtext'] =
+    "An update is available, get the latest version from ~y~https://github.com/alberttheprince/rpemotes-reborn~w~",
     ['suggestions'] = "Suggestions?",
     ['suggestionsinfo'] = "~r~Noor_Nahas~s~ on FiveM forums for any feature/emote suggestions! ✉️",
     ['notvaliddance'] = "is not a valid dance.",
