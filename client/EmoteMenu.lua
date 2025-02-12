@@ -72,7 +72,7 @@ local AnimationHandlers = {
             end
         end
     },
-    shared = {
+    shareds = {
         createMenuItem = function(menu, emoteData, emoteKey)
             local x, y, z, otheremotename = table.unpack(emoteData)
             local desc = "/nearby (~g~" .. emoteKey .. "~w~)" ..
@@ -92,6 +92,11 @@ local AnimationHandlers = {
     }
 
 }
+
+for k, v in pairs(AnimationHandlers) do
+    print(k)
+    RP[k] = {}
+end
 
 -- Function to set up menu handlers
 local function SetupMenuHandlers(menu, handler, config)
@@ -134,6 +139,7 @@ local function CreateSubcategory(parentMenu, subcatConfig, parentName)
         local menuItem = handler.createMenuItem(subcatMenu, emoteData, emoteKey)
         subcatMenu:AddItem(menuItem)
         table.insert(menuTables[subcatConfig.name], emoteKey)
+        RP[subcatConfig.type][emoteKey] = emoteData
     end
 
     -- Set up event handlers

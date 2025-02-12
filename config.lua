@@ -46,8 +46,8 @@ Config = {
     AnimalEmotesEnabled = true,  -- You can disable the Animal Emotes here.
 
     -- Hands Up Options
-    HandsupEnabled = false, -- You can disable the handsup here / change the keybind. It is currently set to Y
-    HandsupKeybind = 'Y',   -- Get the button string here https://docs.fivem.net/docs/game-references/input-mapper-parameter-ids/keyboard/
+    HandsupEnabled = true, -- You can disable the handsup here / change the keybind. It is currently set to Y
+    HandsupKeybind = 'X',  -- Get the button string here https://docs.fivem.net/docs/game-references/input-mapper-parameter-ids/keyboard/
     HandsupKeybindEnabled = false,
     HandsupKeybindInCarEnabled = false,
     PersistentEmoteAfterHandsup = true, -- If true, you will play the emote you were playing previously after you stop handsup.
@@ -122,7 +122,7 @@ Config.MenuCategories = {
             {
                 name = "shareemotes",
                 label = "shareemotes",
-                type = "shared",
+                type = "shareds",
                 dataTable = "Shared",
                 enabled = Config.SharedEmotesEnabled,
                 description = "shareemotesinfo"
@@ -145,7 +145,7 @@ Config.AnimationTypes = {
         allowSharing = false,
         hasTextureVariations = true
     },
-    shared = {
+    shareds = {
         menuCreation = true,
         allowPreview = false,
         allowSharing = true,

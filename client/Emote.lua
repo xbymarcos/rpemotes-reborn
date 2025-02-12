@@ -280,8 +280,9 @@ if Config.HandsupEnabled then
             LocalPlayer.state:set('currentEmote', nil, true)
             ClearPedSecondaryTask(PlayerPedId())
             if Config.PersistentEmoteAfterHandsup and IsInAnimation then
-                local emote = RP.Emotes[CurrentAnimationName] or RP.PropEmotes[CurrentAnimationName] or
-                    RP.Dances[CurrentAnimationName] or RP.AnimalEmotes[CurrentAnimationName]
+                local emote = RP["animation"][CurrentAnimationName] or RP["animation_with_options"]
+                    [CurrentAnimationName] or RP["shared"][CurrentAnimationName] or
+                    RP.AnimalEmotes[CurrentAnimationName]
                 if not emote then
                     return
                 end
@@ -520,7 +521,7 @@ end)
 
 function EmotesOnCommand(source, args, raw)
     local EmotesCommand = ""
-    for a in PairsByKeys(RP.Emotes) do
+    for a in PairsByKeys(RP["animation"]) do
         EmotesCommand = EmotesCommand .. "" .. a .. ", "
     end
     EmoteChatMessage(EmotesCommand)
@@ -594,8 +595,10 @@ function EmoteCommandStart(source, args, raw)
             return
         end
 
-        local emote = RP.Emotes[name] or RP.Dances[name] or RP.AnimalEmotes[name] or RP.PropEmotes[name] or
-            RP.Expressions[name] or RP.Exits[name]
+        local emote = RP["animation"][name] or RP["animation_with_options"][name]
+            or RP["shared"][name] or RP.AnimalEmotes[name]
+            or RP.Expressions[name] or RP.Exits[name]
+
         if emote then
             if RP.AnimalEmotes[name] then
                 if Config.AnimalEmotesEnabled then
@@ -606,20 +609,20 @@ function EmoteCommandStart(source, args, raw)
                 return
             end
 
-            if RP.PropEmotes[name] and RP.PropEmotes[name].AnimationOptions.PropTextureVariations then
+            if RP["animation_with_options"][name] and RP["animation_with_options"][name].AnimationOptions.PropTextureVariations then
                 if #args > 1 then
                     local textureVariation = tonumber(args[2])
-                    if (RP.PropEmotes[name].AnimationOptions.PropTextureVariations[textureVariation] ~= nil) then
-                        OnEmotePlay(RP.PropEmotes[name], name, textureVariation - 1)
+                    if (RP["animation_with_options"][name].AnimationOptions.PropTextureVariations[textureVariation] ~= nil) then
+                        OnEmotePlay(RP["animation_with_options"][name], name, textureVariation - 1)
                         return
                     else
                         local str = ""
-                        for k, v in ipairs(RP.PropEmotes[name].AnimationOptions.PropTextureVariations) do
+                        for k, v in ipairs(RP["animation_with_options"][name].AnimationOptions.PropTextureVariations) do
                             str = str .. string.format("\n(%s) - %s", k, v.Name)
                         end
 
                         EmoteChatMessage(string.format(Translate('invalidvariation'), str), true)
-                        OnEmotePlay(RP.PropEmotes[name], name, 0)
+                        OnEmotePlay(RP["animation_with_options"][name], name, 0)
                         return
                     end
                 end
@@ -1105,8 +1108,8 @@ AddEventHandler('CEventOpenDoor', function(unk1)
 
     Wait(200)
 
-    local emote = RP.Emotes[CurrentAnimationName] or RP.PropEmotes[CurrentAnimationName] or
-        RP.Dances[CurrentAnimationName] or RP.AnimalEmotes[CurrentAnimationName]
+    local emote = RP["animation"][CurrentAnimationName] or RP["animation_with_options"][CurrentAnimationName] or
+        RP.AnimalEmotes[CurrentAnimationName]
     if not emote then
         return
     end
@@ -1142,8 +1145,8 @@ AddEventHandler("CEventPlayerCollisionWithPed", function(unk1)
         return
     end
 
-    local emote = RP.Emotes[CurrentAnimationName] or RP.PropEmotes[CurrentAnimationName] or
-        RP.Dances[CurrentAnimationName] or RP.AnimalEmotes[CurrentAnimationName]
+    local emote = RP["animation"][CurrentAnimationName] or RP["animation_with_options"][CurrentAnimationName] or
+        RP.AnimalEmotes[CurrentAnimationName]
     if not emote then
         return
     end
